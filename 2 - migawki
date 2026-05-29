@@ -1,0 +1,80 @@
+-- Zadanie 1
+CREATE MATERIALIZED VIEW REP_wykladowcy
+REFRESH COMPLETE ON DEMAND
+AS SELECT * FROM wykladowcy@dblinkFilia;
+
+
+-- Zadanie 2
+-- Instrukcję INSERT należy wykonać będąc połączonym z bazą Filii (baza11b)
+INSERT INTO WYKLADOWCY (WYKLADOWCA_ID, IMIE, NAZWISKO, STAWKA) 
+VALUES (115, 'JAN', 'KOWALSKI', 140);
+COMMIT;
+
+
+-- Zadanie 3
+SELECT * FROM REP_wykladowcy;
+
+
+-- Zadanie 4
+EXEC DBMS_MVIEW.REFRESH('REP_wykladowcy', 'C');
+
+
+-- Zadanie 5
+SELECT * FROM REP_wykladowcy;
+
+
+-- Zadanie 6
+CREATE MATERIALIZED VIEW REP_godz_wykladowcy_godziny
+REFRESH COMPLETE
+START WITH LAST_DAY(TRUNC(SYSDATE))
+NEXT SYSDATE + 1/24
+AS 
+SELECT 
+    w.imie, 
+    w.nazwisko, 
+    NVL(SUM(r.godz), 0) AS laczna_liczba_godzin
+FROM wykladowcy@dblinkFilia w
+LEFT JOIN kursy@dblinkFilia k ON w.wykladowca_id = k.wykladowca_id
+LEFT JOIN rodzaje@dblinkFilia r ON k.rodzaj_id = r.rodzaj_id
+GROUP BY w.wykladowca_id, w.imie, w.nazwisko;
+
+
+-- Zadanie 7
+CREATE MATERIALIZED VIEW REP_kursy
+REFRESH COMPLETE
+START WITH SYSDATE
+NEXT SYSDATE + 7
+AS
+SELECT 
+    r.nazwa AS nazwa_kursu,
+    w.imie || ' ' || w.nazwisko AS prowadzacy,
+    r.godz AS ilosc_godzin,
+    r.cena AS wysokosc_oplaty
+FROM kursy@dblinkFilia k
+JOIN rodzaje@dblinkFilia r ON k.rodzaj_id = r.rodzaj_id
+JOIN wykladowcy@dblinkFilia w ON k.wykladowca_id = w.wykladowca_id;
+
+
+-- Zadanie 8
+CREATE OR REPLACE VIEW kursy_wszystkie_widok AS
+SELECT 
+    r.nazwa AS nazwa_kursu,
+    w.imie || ' ' || w.nazwisko AS prowadzacy,
+    r.godz AS ilosc_godzin,
+    r.cena AS wysokosc_oplaty,
+    'Siedziba' AS lokalizacja
+FROM kursy k
+JOIN rodzaje r ON k.rodzaj_id = r.rodzaj_id
+JOIN wykladowcy w ON k.wykladowca_id = w.wykladowca_id
+UNION ALL
+SELECT 
+    nazwa_kursu,
+    prowadzacy,
+    ilosc_godzin,
+    wysokosc_oplaty,
+    'Filia' AS lokalizacja
+FROM REP_kursy;
+
+
+-- Zadanie 9
+SELECT * FROM USER_MVIEWS;
